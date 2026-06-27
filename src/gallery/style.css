@@ -75,10 +75,16 @@ button.codicon+.tooltip-text {
 	object-fit: scale-down;
 }
 
-.lazy {
-	opacity: 0.1;
-	will-change: opacity;
-	transition: all 1s;
+.image.unloaded {
+	background: linear-gradient(90deg, hsl(0, 0%, 15%) 25%, hsl(0, 0%, 22%) 50%, hsl(0, 0%, 15%) 75%);
+	background-size: 200% 100%;
+	animation: shimmer 1.5s infinite;
+	border-radius: 5px;
+}
+
+@keyframes shimmer {
+	0% { background-position: 200% 0; }
+	100% { background-position: -200% 0; }
 }
 
 .loaded {
@@ -184,4 +190,21 @@ select option {
 	background-color: hsl(0, 0%, 23%);
 	color: white;
 	border-radius: 0px;
+}
+
+.gallery-content {
+	position: relative;
+	overflow: visible;
+}
+
+.virtual-folder-bar {
+	position: absolute;
+	left: 0;
+	right: 0;
+}
+
+.virtual-row {
+	position: absolute;
+	left: 0;
+	right: 0;
 }

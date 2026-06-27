@@ -9,6 +9,7 @@ declare module 'custom_typings' {
         mtime: number,
         ctime: number,
         status: "" | "refresh",
+        thumbnailDataUri?: string, // base64 data URI for thumbnail
     };
 
     export type TFolder = {

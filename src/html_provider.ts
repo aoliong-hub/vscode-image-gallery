@@ -42,7 +42,7 @@ export default class HTMLProvider {
 			`default-src 'none';`,
 			`script-src 'nonce-${utils.nonce}';`,
 			`font-src ${this.webview.cspSource};`,
-			`img-src ${this.webview.cspSource} https:;`,
+			`img-src ${this.webview.cspSource} https: data:;`,
 			`style-src ${this.webview.cspSource};`,
 		].join(' ');
 		return `
@@ -133,16 +133,18 @@ export default class HTMLProvider {
 			mtime: image.mtime,
 			ctime: image.ctime,
 		};
+		const thumbSrc = image.thumbnailDataUri || this.placeholderUri;
+		const loadedClass = image.thumbnailDataUri ? 'loaded' : 'unloaded';
 		return `
 		<div class="image-container tooltip">
 			<span id="${image.id}-tooltip" class="tooltip tooltip-text"></span>
 			<img
 				id="${image.id}"
-				src="${this.placeholderUri}"
+				src="${thumbSrc}"
 				data-src="${this.webview.asWebviewUri(image.uri)}"
 				data-path="${image.uri.path}"
 				data-meta='${JSON.stringify(metadata)}'
-				class="image unloaded"
+				class="image ${loadedClass}"
 			>
 			<div id="${image.id}-filename" class="filename">${utils.getFilename(image.uri.path)}</div>
 		</div>

@@ -4,6 +4,7 @@
 out/**
 src/test/**
 node_modules/**
+!node_modules/sharp/**
 src/**/*.ts
 .gitignore
 .yarnrc

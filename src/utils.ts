@@ -2,6 +2,7 @@ import path from 'path';
 import vscode from 'vscode';
 import crypto from 'crypto';
 import fileSystem from 'fs';
+import sharp from 'sharp';
 import { TFolder } from 'custom_typings';
 
 export let packageJSON: any; // global variable
@@ -56,21 +57,29 @@ export function hash256(str: string, truncate = 16) {
 	return 'H' + crypto.createHash('sha256').update(str).digest('hex').substring(0, truncate);
 }
 
-export async function getFileStats(imgUris: vscode.Uri[]) {
-	const result = await Promise.all(imgUris.map(async (imgUri: { fsPath: any; }) => {
-		var path = imgUri.fsPath;
-		var stat = await fileSystem.promises.stat(path);
-		return [path, stat];
-	}));
+export async function asyncPool<T, R>(concurrency: number, items: T[], fn: (item: T) => Promise<R>): Promise<R[]> {
+	const results: R[] = [];
+	const executing = new Set<Promise<void>>();
+	for (const item of items) {
+		const p = fn(item).then(r => { results.push(r); });
+		executing.add(p);
+		p.then(() => executing.delete(p));
+		if (executing.size >= concurrency) {
+			await Promise.race(executing);
+		}
+	}
+	await Promise.all(executing);
+	return results;
+}
 
-	const resultObj = result.reduce((obj, item) => {
-		return {
-			...obj,
-			[item[0]]: item[1],
-		};
-	}, {});
+export async function getFileStats(imgUris: vscode.Uri[]): Promise<Record<string, any>> {
+	const result = await asyncPool(50, imgUris, async (imgUri) => {
+		const p = imgUri.fsPath;
+		const stat = await fileSystem.promises.stat(p);
+		return [p, stat] as const;
+	});
 
-	return resultObj;
+	return Object.fromEntries(result);
 }
 
 export async function getFolders(imgUris: vscode.Uri[], action: "create" | "change" | "delete" = "create") {
@@ -127,4 +136,43 @@ export function getImageSizeStat(folders: Record<string, TFolder>) {
 		mean: Math.round(mean),
 		std: Math.round(std),
 	};
+}
+
+const thumbnailCache = new Map<string, string>();
+
+export async function generateThumbnail(fsPath: string, width = 200, quality = 60): Promise<string> {
+	const cached = thumbnailCache.get(fsPath);
+	if (cached) { return cached; }
+
+	try {
+		const buffer = await sharp(fsPath)
+			.resize(width, undefined, { fit: 'inside', withoutEnlargement: true })
+			.jpeg({ quality, mozjpeg: true })
+			.toBuffer();
+		const dataUri = 'data:image/jpeg;base64,' + buffer.toString('base64');
+		thumbnailCache.set(fsPath, dataUri);
+		return dataUri;
+	} catch {
+		return '';
+	}
+}
+
+export async function generateThumbnails(
+	folders: Record<string, TFolder>,
+	concurrency = 20,
+): Promise<Record<string, string>> {
+	const items: Array<{imageId: string, fsPath: string}> = [];
+	for (const folder of Object.values(folders)) {
+		for (const image of Object.values(folder.images)) {
+			items.push({ imageId: image.id, fsPath: image.uri.fsPath });
+		}
+	}
+
+	const result: Record<string, string> = {};
+	await asyncPool(concurrency, items, async (item) => {
+		const dataUri = await generateThumbnail(item.fsPath);
+		if (dataUri) { result[item.imageId] = dataUri; }
+		return dataUri;
+	});
+	return result;
 }
